@@ -1,0 +1,81 @@
+---
+title: "Weightlifting Exercise Prediction"
+author: "Defani Aghnavia"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Introduction
+This project aims to predict the correctness of weightlifting exercises using data collected from accelerometers on belts, forearms, arms, and dumbbells.
+
+## Load Libraries
+```{r}
+library(tidyverse)
+library(caret)
+library(randomForest)
+library(knitr)
+```
+
+## Load Data
+```{r}
+train_url <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+test_url <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+
+train_data <- read.csv(url(train_url), na.strings = c("", "NA", "#DIV/0!"))
+test_data <- read.csv(url(test_url), na.strings = c("", "NA", "#DIV/0!"))
+```
+
+## Data Cleaning
+```{r}
+# Remove columns with too many missing values
+train_data <- train_data[, colSums(is.na(train_data)) < nrow(train_data) * 0.5]
+test_data <- test_data[, colSums(is.na(test_data)) < nrow(test_data) * 0.5]
+
+# Remove non-predictive columns
+non_predictive <- c("X", "user_name", "raw_timestamp_part_1", "raw_timestamp_part_2", 
+                    "cvtd_timestamp", "new_window", "num_window")
+
+train_data <- train_data %>% select(-all_of(non_predictive))
+test_data <- test_data %>% select(-all_of(non_predictive))
+
+# Convert 'classe' to factor
+train_data$classe <- as.factor(train_data$classe)
+
+# Ensure all predictors (except target variable) are numeric
+train_data <- train_data %>% mutate(across(where(is.character), as.numeric))
+test_data <- test_data %>% mutate(across(where(is.character), as.numeric))
+```
+
+## Train-Test Split
+```{r}
+set.seed(123)
+trainIndex <- createDataPartition(train_data$classe, p = 0.7, list = FALSE)
+train_set <- train_data[trainIndex, ]
+test_set <- train_data[-trainIndex, ]
+```
+
+## Train Model
+```{r}
+set.seed(123)
+model_rf <- randomForest(classe ~ ., data = train_set, ntree = 100, importance = TRUE)
+print(model_rf)
+```
+
+## Model Evaluation
+```{r}
+predictions <- predict(model_rf, test_set)
+test_set$classe <- as.factor(test_set$classe)  # Ensure classe is a factor
+
+conf_matrix <- confusionMatrix(predictions, test_set$classe)
+print(conf_matrix)
+```
+
+## Predictions on Testing Data
+```{r}
+test_predictions <- predict(model_rf, test_data)
+print(test_predictions)
+```
